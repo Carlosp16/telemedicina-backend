@@ -1,0 +1,42 @@
+# -----------------------------------------------------------------------------
+# Pila mínima para desarrollo local:
+#   - MongoDB 7 con volumen persistente
+#   - API Nest (build local)
+#   - Mailhog para capturar correos de reset de contraseña
+# -----------------------------------------------------------------------------
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+  api:
+    build: .
+    depends_on:
+      - mongo
+      - mailhog
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      MONGO_URI: mongodb://mongo:27017/teg_telemedicina
+      JWT_SECRET: dev_change_me_please
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      MAIL_FROM: no-reply@telemedicina.local
+      CORS_ORIGINS: "*"
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo_data:
