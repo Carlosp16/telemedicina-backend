@@ -9,6 +9,8 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { Logger, UseGuards, ValidationPipe, UsePipes } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 
 import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
@@ -41,15 +43,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
-  constructor(private readonly chat: ChatService) {}
+  constructor(
+    private readonly chat: ChatService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
+  ) {}
 
+  /**
+   * En NestJS, `@UseGuards` solo corre para `@SubscribeMessage` handlers, no
+   * para `handleConnection`. Por eso autenticamos manualmente acá: leemos el
+   * token del handshake (auth.token o Authorization), lo validamos y lo
+   * adjuntamos a `client.data.user` para que el resto del gateway lo use.
+   */
   async handleConnection(client: Socket): Promise<void> {
-    const user = client.data.user as JwtPayload | undefined;
-    if (!user) {
+    this.logger.log(`Chat: handshake recibido socket=${client.id}`);
+    const token = this.extractToken(client);
+    if (!token) {
+      this.logger.warn(`Chat ${client.id} sin token — rechazado.`);
       client.disconnect(true);
       return;
     }
-    this.logger.debug(`Chat conectado: ${user.email} (socket=${client.id}).`);
+    try {
+      const payload = this.jwt.verify<JwtPayload>(token, {
+        secret: this.config.get<string>('jwt.secret'),
+      });
+      client.data.user = payload;
+      this.logger.log(`Chat conectado: ${payload.email} (socket=${client.id}).`);
+    } catch (err) {
+      this.logger.warn(
+        `Token inválido en chat ${client.id}: ${(err as Error).message}`,
+      );
+      client.disconnect(true);
+    }
+  }
+
+  private extractToken(client: Socket): string | undefined {
+    const authObj = (client.handshake.auth ?? {}) as Record<string, unknown>;
+    if (typeof authObj.token === 'string') return authObj.token;
+    const header = client.handshake.headers['authorization'];
+    if (typeof header === 'string' && header.toLowerCase().startsWith('bearer ')) {
+      return header.slice(7);
+    }
+    return undefined;
   }
 
   handleDisconnect(client: Socket): void {

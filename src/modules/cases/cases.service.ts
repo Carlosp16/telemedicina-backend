@@ -58,7 +58,11 @@ export class CasesService {
   }
 
   findById(id: string): Promise<CaseDocument | null> {
-    return this.model.findById(id).exec();
+    return this.model
+      .findById(id)
+      .populate('patient', 'email firstName lastName')
+      .populate('doctor', 'email firstName lastName specialty')
+      .exec();
   }
 
   listForDoctor(doctorId: string): Promise<CaseDocument[]> {

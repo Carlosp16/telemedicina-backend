@@ -31,10 +31,14 @@ services:
       PORT: 3000
       MONGO_URI: mongodb://mongo:27017/teg_telemedicina
       JWT_SECRET: dev_change_me_please
+      JWT_RESET_SECRET: dev_reset_change_me_please
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MAIL_FROM: no-reply@telemedicina.local
       CORS_ORIGINS: "*"
+      # Admin inicial: se crea al arrancar si no existe.
+      SEED_ADMIN_EMAIL: admin@telemedicina.local
+      SEED_ADMIN_PASSWORD: Admin1234!
     ports:
       - "3000:3000"
 
