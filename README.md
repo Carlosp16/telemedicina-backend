@@ -397,6 +397,3 @@ npm run test:cov         # cobertura
 
 ---
 
-## 14. Licencia y créditos
-
-Código escrito para el TEG de la UCAB, Escuela de Ingeniería Informática.

@@ -1,7 +1,7 @@
 {
   "name": "teg-telemedicina-backend",
   "version": "1.0.0",
-  "description": "API y capa de servicios en tiempo real de la plataforma de telemedicina (TEG UCAB).",
+  "description": "API plataforma de telemedicina",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
