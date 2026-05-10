@@ -11,6 +11,7 @@ import { Message, MessageDocument, MessageKind } from '../../schemas/message.sch
 import { CasesService } from '../cases/cases.service';
 import { UsersService } from '../users/users.service';
 import { CaseStatus, CaseType } from '../../schemas/case.schema';
+import { idOf } from '../../common/utils/refs';
 
 /**
  * Servicio de chat.
@@ -105,15 +106,21 @@ export class ChatService {
 
   /**
    * Verifica que el usuario participe en el caso. Lanza 403 si no.
+   *
+   * Soporta tanto refs raw (ObjectId) como populated (objeto con _id) porque
+   * `cases.findById` puede haberlas poblado para el portal.
    */
   private async assertParticipant(caseId: string, userId: string) {
     const kase = await this.cases.findById(caseId);
     if (!kase) throw new NotFoundException('Caso no encontrado.');
-    const participates =
-      String(kase.patient) === userId || String(kase.doctor) === userId;
+
+    const patientId = idOf(kase.patient);
+    const doctorId = idOf(kase.doctor);
+    const participates = patientId === userId || doctorId === userId;
     if (!participates) {
       throw new ForbiddenException('No participas en este caso.');
     }
     return kase;
   }
 }
+
