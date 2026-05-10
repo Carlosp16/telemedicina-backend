@@ -132,11 +132,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const user = client.data.user as JwtPayload;
     const msg = await this.chat.postTextMessage(data.caseId, user.sub, data.content);
+    const payload = msg.toJSON();
 
-    // Emitimos a todos los sockets conectados al caso (incluido el emisor
-    // para confirmación — el cliente decide si lo ignora).
-    this.server.of('/chat').to(this.room(data.caseId)).emit('message', msg.toJSON());
-    return { ok: true, id: String(msg._id) };
+    // Emitimos a todos los sockets conectados al caso. Excluimos al emisor
+    // (que ya recibe el mensaje en el `ack` de retorno) para evitar duplicados
+    // y para no depender del room (si el remitente todavía no se unió por
+    // race condition, igual ve su mensaje vía el ack).
+    client.to(this.room(data.caseId)).emit('message', payload);
+
+    // El ack incluye el mensaje completo: el cliente puede agregarlo a la UI
+    // sin esperar el broadcast.
+    return { ok: true, message: payload };
   }
 
   @SubscribeMessage('typing')
