@@ -14,6 +14,7 @@ import { CasesService } from '../cases/cases.service';
 import { CaseStatus } from '../../schemas/case.schema';
 import { ChatGateway } from '../chat/chat.gateway';
 import { UploadFileDto } from './dto/upload-file.dto';
+import { idOf } from '../../common/utils/refs';
 
 /**
  * Servicio de transferencia de archivos.
@@ -76,7 +77,7 @@ export class FilesService {
       throw new BadRequestException('El caso está cerrado.');
     }
     const participates =
-      String(kase.patient) === senderId || String(kase.doctor) === senderId;
+      idOf(kase.patient) === senderId || idOf(kase.doctor) === senderId;
     if (!participates) {
       throw new ForbiddenException('No participas en este caso.');
     }
@@ -115,7 +116,7 @@ export class FilesService {
     const kase = await this.cases.findById(String(msg.case));
     if (!kase) throw new NotFoundException('Caso asociado inexistente.');
     const participates =
-      String(kase.patient) === userId || String(kase.doctor) === userId;
+      idOf(kase.patient) === userId || idOf(kase.doctor) === userId;
     if (!participates) throw new ForbiddenException('Acceso denegado.');
 
     return {
