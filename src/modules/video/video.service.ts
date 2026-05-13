@@ -13,7 +13,8 @@ import {
 } from '../../schemas/video-session.schema';
 import { UsersService } from '../users/users.service';
 import { CasesService } from '../cases/cases.service';
-import { CaseType } from '../../schemas/case.schema';
+import { CaseType, CaseStatus } from '../../schemas/case.schema';
+import { idOf } from '../../common/utils/refs';
 
 /**
  * Servicio de videoconferencia.
@@ -62,10 +63,40 @@ export class VideoService {
     return { session, case: kase, doctor };
   }
 
+  /**
+   * Inicia una sesión de video sobre un caso de chat existente. Útil para el
+   * botón 📹 dentro del ChatScreen / CasePage: aprovecha el caso ya creado
+   * en lugar de crear uno nuevo. Cualquiera de los participantes puede
+   * iniciarla.
+   */
+  async createForExistingCase(caseId: string, callerId: string) {
+    const kase = await this.cases.findById(caseId);
+    if (!kase) throw new NotFoundException('Caso no encontrado.');
+    if (kase.status === CaseStatus.CLOSED) {
+      throw new BadRequestException('El caso está cerrado, no se pueden iniciar llamadas.');
+    }
+    const patientId = idOf(kase.patient);
+    const doctorId = idOf(kase.doctor);
+    const isParticipant = patientId === callerId || doctorId === callerId;
+    if (!isParticipant) {
+      throw new BadRequestException('No participas en este caso.');
+    }
+
+    const session = await this.model.create({
+      case: kase._id,
+      patient: new Types.ObjectId(patientId),
+      doctor: new Types.ObjectId(doctorId),
+      status: VideoSessionStatus.RINGING,
+      initiatedBy: new Types.ObjectId(callerId),
+    });
+
+    return { session, case: kase };
+  }
+
   async accept(sessionId: string, doctorId: string): Promise<VideoSessionDocument> {
     const session = await this.model.findById(sessionId);
     if (!session) throw new NotFoundException('Sesión no encontrada.');
-    if (String(session.doctor) !== doctorId) {
+    if (idOf(session.doctor) !== doctorId) {
       throw new BadRequestException('Esta sesión no está asignada a ti.');
     }
     if (session.status !== VideoSessionStatus.RINGING) {
@@ -80,7 +111,7 @@ export class VideoService {
   async reject(sessionId: string, doctorId: string): Promise<VideoSessionDocument> {
     const session = await this.model.findById(sessionId);
     if (!session) throw new NotFoundException('Sesión no encontrada.');
-    if (String(session.doctor) !== doctorId) {
+    if (idOf(session.doctor) !== doctorId) {
       throw new BadRequestException('Esta sesión no está asignada a ti.');
     }
     session.status = VideoSessionStatus.REJECTED;
@@ -88,8 +119,12 @@ export class VideoService {
     session.endedBy = new Types.ObjectId(doctorId);
     await session.save();
 
-    // Liberar la carga del médico, ya que el caso no llegó a arrancar.
-    await this.cases.close(String(session.case), new Types.ObjectId(doctorId));
+    // Solo cerramos el caso si la sesión lo había creado (caso de type VIDEO).
+    // Si la llamada se inició desde un chat existente, dejamos el caso vivo.
+    const kase = await this.cases.findById(String(session.case));
+    if (kase && kase.type === CaseType.VIDEO) {
+      await this.cases.close(String(session.case), new Types.ObjectId(doctorId));
+    }
     return session;
   }
 
@@ -98,7 +133,7 @@ export class VideoService {
     if (!session) throw new NotFoundException('Sesión no encontrada.');
 
     const participant =
-      String(session.patient) === userId || String(session.doctor) === userId;
+      idOf(session.patient) === userId || idOf(session.doctor) === userId;
     if (!participant) throw new BadRequestException('No participas en esta sesión.');
 
     if (session.status === VideoSessionStatus.ENDED) return session;
@@ -106,13 +141,18 @@ export class VideoService {
     session.status = VideoSessionStatus.ENDED;
     session.endedAt = new Date();
     session.endedBy = new Types.ObjectId(userId);
-    session.durationSec = Math.max(
-      0,
-      Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 1000),
-    );
+    // Si la llamada nunca arrancó (rechazada/no contestada), startedAt puede
+    // ser null — protegemos el cálculo de duración.
+    session.durationSec = session.startedAt
+      ? Math.max(
+          0,
+          Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 1000),
+        )
+      : 0;
     await session.save();
 
-    await this.cases.close(String(session.case), new Types.ObjectId(userId));
+    // No cerramos el caso: el usuario puede querer seguir chateando después
+    // de la llamada. El caso lo cierra el médico explícitamente.
     return session;
   }
 

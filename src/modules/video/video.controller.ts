@@ -41,6 +41,20 @@ export class VideoController {
     return this.service.createForPatient(user.sub, dto.reason);
   }
 
+  @Post('cases/:caseId/start')
+  @ApiOperation({
+    summary: 'Inicia una videollamada sobre un caso existente.',
+    description:
+      'Cualquiera de los participantes (paciente o médico) puede dispararla. ' +
+      'No crea un caso nuevo, reutiliza el del chat.',
+  })
+  startForCase(
+    @Param('caseId') caseId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.createForExistingCase(caseId, user.sub);
+  }
+
   @UseGuards(RolesGuard)
   @Roles(UserRole.MEDICO)
   @Post(':id/accept')
