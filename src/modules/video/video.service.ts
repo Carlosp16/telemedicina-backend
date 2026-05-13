@@ -15,6 +15,7 @@ import { UsersService } from '../users/users.service';
 import { CasesService } from '../cases/cases.service';
 import { CaseType, CaseStatus } from '../../schemas/case.schema';
 import { idOf } from '../../common/utils/refs';
+import { ChatGateway } from '../chat/chat.gateway';
 
 /**
  * Servicio de videoconferencia.
@@ -34,6 +35,7 @@ export class VideoService {
     private readonly model: Model<VideoSessionDocument>,
     private readonly users: UsersService,
     private readonly cases: CasesService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   /**
@@ -88,6 +90,19 @@ export class VideoService {
       doctor: new Types.ObjectId(doctorId),
       status: VideoSessionStatus.RINGING,
       initiatedBy: new Types.ObjectId(callerId),
+    });
+
+    // Notificamos al otro participante por el socket de chat (que ya tiene
+    // a ambos extremos en su room) para que muestre la pantalla de
+    // "llamada entrante".
+    const caller = await this.users.findById(callerId);
+    const callerName = caller
+      ? [caller.firstName, caller.lastName].filter(Boolean).join(' ').trim() || caller.email
+      : undefined;
+    this.chatGateway.emitIncomingCall(String(kase._id), {
+      sessionId: String(session._id),
+      callerId,
+      callerName,
     });
 
     return { session, case: kase };

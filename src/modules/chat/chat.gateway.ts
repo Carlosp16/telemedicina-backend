@@ -173,6 +173,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.of('/chat').to(this.room(caseId)).emit('message', message);
   }
 
+  /**
+   * Helper público para que VideoService notifique a los participantes del
+   * chat que hay una llamada entrante.
+   */
+  emitIncomingCall(caseId: string, payload: {
+    sessionId: string;
+    callerId: string;
+    callerName?: string;
+  }): void {
+    this.server.of('/chat').to(this.room(caseId)).emit('incoming-call', payload);
+  }
+
   private room(caseId: string): string {
     return `chat:${caseId}`;
   }
