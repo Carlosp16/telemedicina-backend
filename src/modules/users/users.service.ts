@@ -15,6 +15,8 @@ import { AccessCodesService } from '../access-codes/access-codes.service';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { UpdateDoctorDto } from './dto/update-doctor.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 
 /**
  * Servicio que encapsula la lógica de negocio de los usuarios.
@@ -90,6 +92,71 @@ export class UsersService {
   // ---------------------------------------------------------------------------
   // Alta de médicos (admin)
   // ---------------------------------------------------------------------------
+
+  /**
+   * Lista todos los médicos del sistema. Útil para el panel del admin.
+   * No incluye campos sensibles (la contraseña hash no se expone por el
+   * select implícito del schema).
+   */
+  listDoctors(): Promise<UserDocument[]> {
+    return this.userModel
+      .find({ role: UserRole.MEDICO })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  /**
+   * Lista todos los pacientes del sistema.
+   */
+  listPatients(): Promise<UserDocument[]> {
+    return this.userModel
+      .find({ role: UserRole.PACIENTE })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  /**
+   * Actualiza un médico desde el panel admin. Campos editables:
+   * firstName, lastName, specialty, licenseNumber, isActive.
+   */
+  async updateDoctor(doctorId: string, dto: UpdateDoctorDto): Promise<UserDocument> {
+    const doctor = await this.userModel.findOne({
+      _id: doctorId,
+      role: UserRole.MEDICO,
+    });
+    if (!doctor) throw new NotFoundException('Médico no encontrado.');
+
+    if (dto.firstName !== undefined) doctor.firstName = dto.firstName;
+    if (dto.lastName !== undefined) doctor.lastName = dto.lastName;
+    if (dto.specialty !== undefined) doctor.specialty = dto.specialty;
+    if (dto.licenseNumber !== undefined) doctor.licenseNumber = dto.licenseNumber;
+    if (dto.isActive !== undefined) {
+      doctor.isActive = dto.isActive;
+      // Si lo desactivamos, también lo sacamos de la cola de disponibles
+      // para que no le lleguen pacientes nuevos.
+      if (!dto.isActive) doctor.available = false;
+    }
+    await doctor.save();
+    return doctor;
+  }
+
+  /**
+   * Actualiza un paciente desde el panel admin. Mayormente para activar /
+   * desactivar; los datos personales los modifica el propio paciente.
+   */
+  async updatePatient(patientId: string, dto: UpdatePatientDto): Promise<UserDocument> {
+    const patient = await this.userModel.findOne({
+      _id: patientId,
+      role: UserRole.PACIENTE,
+    });
+    if (!patient) throw new NotFoundException('Paciente no encontrado.');
+
+    if (dto.firstName !== undefined) patient.firstName = dto.firstName;
+    if (dto.lastName !== undefined) patient.lastName = dto.lastName;
+    if (dto.isActive !== undefined) patient.isActive = dto.isActive;
+    await patient.save();
+    return patient;
+  }
 
   async createDoctor(dto: CreateDoctorDto): Promise<UserDocument> {
     const email = dto.email.toLowerCase().trim();

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Post,
   UseGuards,
@@ -24,6 +25,8 @@ import { UsersService } from './users.service';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { UpdateDoctorDto } from './dto/update-doctor.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 
 class ToggleAvailabilityDto {
   @IsBoolean()
@@ -88,5 +91,48 @@ export class UsersController {
   @ApiOperation({ summary: 'Crear cuenta de médico (sólo admin).' })
   createDoctor(@Body() dto: CreateDoctorDto) {
     return this.service.createDoctor(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Get('doctors')
+  @ApiOperation({ summary: 'Listar todos los médicos del sistema (admin).' })
+  listDoctors() {
+    return this.service.listDoctors();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Patch('doctors/:id')
+  @ApiOperation({
+    summary: 'Modificar datos / estado de un médico (admin).',
+    description:
+      'Permite actualizar firstName, lastName, specialty, licenseNumber e isActive. ' +
+      'Si se pasa isActive=false, el médico queda fuera de la cola de disponibles.',
+  })
+  updateDoctor(@Param('id') id: string, @Body() dto: UpdateDoctorDto) {
+    return this.service.updateDoctor(id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Get('patients')
+  @ApiOperation({ summary: 'Listar todos los pacientes del sistema (admin).' })
+  listPatients() {
+    return this.service.listPatients();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Patch('patients/:id')
+  @ApiOperation({
+    summary: 'Activar / desactivar paciente (admin).',
+  })
+  updatePatient(@Param('id') id: string, @Body() dto: UpdatePatientDto) {
+    return this.service.updatePatient(id, dto);
   }
 }
