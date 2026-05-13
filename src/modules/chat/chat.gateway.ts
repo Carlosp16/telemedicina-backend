@@ -162,7 +162,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * notificar a las salas de chat.
    */
   emitCaseClosed(caseId: string): void {
-    this.server.of('/chat').to(this.room(caseId)).emit('case-closed', { caseId });
+    // @WebSocketServer() inyecta la Namespace `/chat`, NO el Server root.
+    // Por eso emitimos directo con `this.server.to(...)`. Llamar a `.of('/chat')`
+    // explota porque una Namespace no expone ese método.
+    this.server.to(this.room(caseId)).emit('case-closed', { caseId });
   }
 
   /**
@@ -170,7 +173,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * un archivo vía el endpoint HTTP y queremos notificar al otro peer).
    */
   emitMessage(caseId: string, message: unknown): void {
-    this.server.of('/chat').to(this.room(caseId)).emit('message', message);
+    this.server.to(this.room(caseId)).emit('message', message);
   }
 
   /**
@@ -182,7 +185,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     callerId: string;
     callerName?: string;
   }): void {
-    this.server.of('/chat').to(this.room(caseId)).emit('incoming-call', payload);
+    this.server.to(this.room(caseId)).emit('incoming-call', payload);
   }
 
   private room(caseId: string): string {
