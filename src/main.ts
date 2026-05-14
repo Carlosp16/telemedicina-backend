@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { json, urlencoded } from 'express';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -26,6 +27,13 @@ async function bootstrap() {
 
   // --- Seguridad HTTP básica ------------------------------------------------
   app.use(helmet());
+
+  // --- Body size limit ------------------------------------------------------
+  // El default de Express (100 KB) corta los uploads de archivos en Base64.
+  // Subimos a 2 MB: cubre el tope de 1 MB binario × 1.37 de overhead de Base64
+  // + algunos bytes para el resto del JSON.
+  app.use(json({ limit: '2mb' }));
+  app.use(urlencoded({ limit: '2mb', extended: true }));
 
   // --- CORS ----------------------------------------------------------------
   const origins = config.get<string[]>('corsOrigins') ?? ['*'];
