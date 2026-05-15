@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "5ebe41b6-6cba-4737-a967-06690c1ef663"
+      }
+    },
+    "android": {
+      "package": "com.carlosp16.tegtelemedicinabackend"
+    }
+  }
+}

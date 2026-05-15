@@ -55,18 +55,22 @@ export class VideoController {
     return this.service.createForExistingCase(caseId, user.sub);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MEDICO)
   @Post(':id/accept')
-  @ApiOperation({ summary: 'El médico acepta la llamada entrante.' })
+  @ApiOperation({
+    summary: 'Cualquiera de los participantes acepta la llamada entrante.',
+    description:
+      'Antes solo lo podía hacer el médico (cuando el flujo era ' +
+      'paciente → médico). Ahora cualquiera de los dos puede iniciar y ' +
+      'aceptar, así que la validación de participación se hace en el servicio.',
+  })
   accept(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.service.accept(id, user.sub);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MEDICO)
   @Post(':id/reject')
-  @ApiOperation({ summary: 'El médico rechaza la llamada entrante.' })
+  @ApiOperation({
+    summary: 'Cualquiera de los participantes rechaza la llamada entrante.',
+  })
   reject(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.service.reject(id, user.sub);
   }

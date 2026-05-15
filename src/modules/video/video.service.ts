@@ -108,11 +108,14 @@ export class VideoService {
     return { session, case: kase };
   }
 
-  async accept(sessionId: string, doctorId: string): Promise<VideoSessionDocument> {
+  async accept(sessionId: string, userId: string): Promise<VideoSessionDocument> {
     const session = await this.model.findById(sessionId);
     if (!session) throw new NotFoundException('Sesión no encontrada.');
-    if (idOf(session.doctor) !== doctorId) {
-      throw new BadRequestException('Esta sesión no está asignada a ti.');
+    // El que acepta tiene que ser uno de los participantes (no el caller).
+    const participant =
+      idOf(session.patient) === userId || idOf(session.doctor) === userId;
+    if (!participant) {
+      throw new BadRequestException('No participas en esta sesión.');
     }
     if (session.status !== VideoSessionStatus.RINGING) {
       throw new BadRequestException('La sesión ya no puede aceptarse.');
@@ -123,22 +126,24 @@ export class VideoService {
     return session;
   }
 
-  async reject(sessionId: string, doctorId: string): Promise<VideoSessionDocument> {
+  async reject(sessionId: string, userId: string): Promise<VideoSessionDocument> {
     const session = await this.model.findById(sessionId);
     if (!session) throw new NotFoundException('Sesión no encontrada.');
-    if (idOf(session.doctor) !== doctorId) {
-      throw new BadRequestException('Esta sesión no está asignada a ti.');
+    const participant =
+      idOf(session.patient) === userId || idOf(session.doctor) === userId;
+    if (!participant) {
+      throw new BadRequestException('No participas en esta sesión.');
     }
     session.status = VideoSessionStatus.REJECTED;
     session.endedAt = new Date();
-    session.endedBy = new Types.ObjectId(doctorId);
+    session.endedBy = new Types.ObjectId(userId);
     await session.save();
 
     // Solo cerramos el caso si la sesión lo había creado (caso de type VIDEO).
     // Si la llamada se inició desde un chat existente, dejamos el caso vivo.
     const kase = await this.cases.findById(String(session.case));
     if (kase && kase.type === CaseType.VIDEO) {
-      await this.cases.close(String(session.case), new Types.ObjectId(doctorId));
+      await this.cases.close(String(session.case), new Types.ObjectId(userId));
     }
     return session;
   }
