@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  forwardRef,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
@@ -27,6 +29,7 @@ import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { WaitingRoomService } from '../waiting-room/waiting-room.service';
 
 class ToggleAvailabilityDto {
   @IsBoolean()
@@ -36,7 +39,11 @@ class ToggleAvailabilityDto {
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly service: UsersService) {}
+  constructor(
+    private readonly service: UsersService,
+    @Inject(forwardRef(() => WaitingRoomService))
+    private readonly waitingRoom: WaitingRoomService,
+  ) {}
 
   // -------- Público -----------------------------------------------------
   @Post('register')
@@ -80,7 +87,19 @@ export class UsersController {
     @Body() dto: ToggleAvailabilityDto,
   ) {
     await this.service.setAvailability(user.sub, dto.available);
-    return { available: dto.available };
+    let dispatchedCase: unknown = null;
+    if (dto.available) {
+      // Al ponerse disponible, intentamos asignarle el primer paciente en
+      // cola. Si la cola está vacía, dispatchToDoctor devuelve null y no
+      // pasa nada. Si hay paciente, se le crea un caso y queda asignado.
+      try {
+        dispatchedCase = await this.waitingRoom.dispatchToDoctor(user.sub);
+      } catch {
+        // Best-effort: no fallamos el toggle si la cola tiene un problema.
+        dispatchedCase = null;
+      }
+    }
+    return { available: dto.available, dispatchedCase };
   }
 
   // -------- Admin -------------------------------------------------------

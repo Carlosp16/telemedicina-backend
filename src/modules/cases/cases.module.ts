@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { Case, CaseSchema } from '../../schemas/case.schema';
@@ -9,7 +9,8 @@ import { CasesService } from './cases.service';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Case.name, schema: CaseSchema }]),
-    UsersModule,
+    // UsersModule -> WaitingRoomModule -> CasesModule (ciclo). forwardRef.
+    forwardRef(() => UsersModule),
   ],
   controllers: [CasesController],
   providers: [CasesService],

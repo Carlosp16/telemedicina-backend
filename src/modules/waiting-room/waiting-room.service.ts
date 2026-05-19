@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +13,9 @@ import {
   WaitingRoomEntry,
   WaitingRoomEntryDocument,
 } from '../../schemas/waiting-room.schema';
+import { CasesService } from '../cases/cases.service';
+import { CaseType, CaseDocument } from '../../schemas/case.schema';
+import { idOf } from '../../common/utils/refs';
 
 /**
  * Servicio de sala de espera.
@@ -26,7 +31,30 @@ export class WaitingRoomService {
   constructor(
     @InjectModel(WaitingRoomEntry.name)
     private readonly model: Model<WaitingRoomEntryDocument>,
+    @Inject(forwardRef(() => CasesService))
+    private readonly cases: CasesService,
   ) {}
+
+  /**
+   * Despacha al primer paciente de la cola al médico indicado.
+   * Crea un caso CHAT entre ambos, lo saca de la cola atómicamente,
+   * y devuelve el caso. Si no hay nadie esperando, devuelve null.
+   *
+   * Lo usa `UsersService.setAvailability(true)` para activar a un
+   * médico Y de paso asignarle el primer paciente que estaba aguardando.
+   */
+  async dispatchToDoctor(doctorId: string): Promise<CaseDocument | null> {
+    const entry = await this.takeNext();
+    if (!entry) return null;
+    // takeNext popula `patient`, así que extraemos el _id robustamente.
+    const patientObjectId = new Types.ObjectId(idOf(entry.patient));
+    return this.cases.create(
+      patientObjectId,
+      new Types.ObjectId(doctorId),
+      CaseType.CHAT,
+      entry.reason,
+    );
+  }
 
   /**
    * Agrega un paciente a la lista. Si ya está, lanza 409.
@@ -57,14 +85,27 @@ export class WaitingRoomService {
 
   /**
    * Lista todas las entradas, más antiguas primero.
-   * Incluye información básica del paciente.
+   * Incluye información básica del paciente y se mapea a un shape "client-
+   * friendly" con `position` (1-indexado) y `createdAt` (alias de joinedAt).
    */
-  list(): Promise<WaitingRoomEntryDocument[]> {
-    return this.model
+  async list(): Promise<Array<Record<string, unknown>>> {
+    const docs = await this.model
       .find()
       .sort({ joinedAt: 1 })
       .populate('patient', 'email firstName lastName')
       .exec();
+    return docs.map((doc, idx) => {
+      const plain = doc.toObject({ virtuals: true });
+      return {
+        ...plain,
+        position: idx + 1,
+        createdAt: plain.joinedAt,
+        // En tu modelo actual no hay distinción chat/video en la entrada
+        // de cola — el tipo se decide cuando se asigna. Defaulteamos a
+        // 'chat' para el UI.
+        type: (plain as { type?: string }).type ?? 'chat',
+      };
+    });
   }
 
   /**

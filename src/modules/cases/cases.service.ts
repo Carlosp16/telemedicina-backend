@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
@@ -21,6 +21,7 @@ import { UsersService } from '../users/users.service';
 export class CasesService {
   constructor(
     @InjectModel(Case.name) private readonly model: Model<CaseDocument>,
+    @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
   ) {}
 
