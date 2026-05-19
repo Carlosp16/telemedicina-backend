@@ -93,6 +93,9 @@ export class AuthService {
     return {
       accessToken: this.issueToken(user),
       user: {
+        // Los clientes leen `_id` (estándar Mongoose). Dejamos `id` también
+        // por compatibilidad por si algún consumidor externo lo espera.
+        _id: String(user._id),
         id: String(user._id),
         email: user.email,
         role: user.role,
