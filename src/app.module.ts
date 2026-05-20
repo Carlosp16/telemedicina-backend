@@ -15,6 +15,7 @@ import { CasesModule } from './modules/cases/cases.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { VideoModule } from './modules/video/video.module';
 import { FilesModule } from './modules/files/files.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { MailModule } from './mail/mail.module';
 import { UsersService } from './modules/users/users.service';
 
@@ -52,6 +53,7 @@ import { UsersService } from './modules/users/users.service';
     ChatModule,
     VideoModule,
     FilesModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

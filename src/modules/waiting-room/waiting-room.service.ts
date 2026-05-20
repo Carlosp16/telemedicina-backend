@@ -122,6 +122,17 @@ export class WaitingRoomService {
       .exec();
   }
 
+  /** Vacía toda la lista. Usado por el admin desde el panel de control. */
+  async clearAll(): Promise<{ deleted: number }> {
+    const res = await this.model.deleteMany({});
+    return { deleted: res.deletedCount ?? 0 };
+  }
+
+  /** Cuántos hay esperando. Para el dashboard. */
+  count(): Promise<number> {
+    return this.model.countDocuments().exec();
+  }
+
   async position(patientId: string): Promise<number> {
     const entry = await this.model.findOne({ patient: new Types.ObjectId(patientId) });
     if (!entry) throw new NotFoundException('No estás en la lista de espera.');

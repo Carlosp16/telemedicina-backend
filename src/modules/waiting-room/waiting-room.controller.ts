@@ -61,10 +61,24 @@ export class WaitingRoomController {
 
   // -------- Médico -------------------------------------------------------
   @UseGuards(RolesGuard)
-  @Roles(UserRole.MEDICO)
+  @Roles(UserRole.MEDICO, UserRole.ADMIN)
   @Get()
   @ApiOperation({ summary: 'Listar pacientes en espera (FIFO).' })
   list() {
     return this.service.list();
+  }
+
+  // -------- Admin --------------------------------------------------------
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Delete()
+  @ApiOperation({
+    summary: 'Vaciar toda la sala de espera (sólo admin).',
+    description:
+      'Borra todas las entradas. Los pacientes que estaban esperando dejan ' +
+      'de aparecer en la cola; deberán pedir consulta de nuevo.',
+  })
+  clearAll() {
+    return this.service.clearAll();
   }
 }
