@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import {
@@ -7,16 +7,18 @@ import {
 } from '../../schemas/waiting-room.schema';
 import { WaitingRoomController } from './waiting-room.controller';
 import { WaitingRoomService } from './waiting-room.service';
-import { CasesModule } from '../cases/cases.module';
 
+/**
+ * Módulo de sala de espera. Es standalone: solo gestiona la cola.
+ * La orquestación "tomar al siguiente + crear caso" la hace UsersController
+ * (que tiene acceso tanto a WaitingRoomService como a CasesService), así
+ * evitamos el ciclo WaitingRoom → Cases → Users → WaitingRoom.
+ */
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: WaitingRoomEntry.name, schema: WaitingRoomEntrySchema },
     ]),
-    // CasesModule importa UsersModule, que ahora importa WaitingRoomModule.
-    // forwardRef rompe el ciclo en tiempo de resolución.
-    forwardRef(() => CasesModule),
   ],
   controllers: [WaitingRoomController],
   providers: [WaitingRoomService],

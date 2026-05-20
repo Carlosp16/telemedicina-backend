@@ -6,21 +6,25 @@ import { AccessCodesModule } from '../access-codes/access-codes.module';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { WaitingRoomModule } from '../waiting-room/waiting-room.module';
+import { CasesModule } from '../cases/cases.module';
 
 /**
  * Módulo que agrupa la gestión de usuarios (pacientes, médicos, admins).
- * Exporta `UsersService` para que lo consuman `AuthModule`, `WaitingRoomModule`,
- * `ChatModule` y `VideoModule`.
  *
- * Importa `WaitingRoomModule` con forwardRef para evitar el ciclo:
- *   WaitingRoomModule → CasesModule → UsersModule → WaitingRoomModule
- * que se forma porque ahora el setAvailability auto-asigna pacientes en cola.
+ * Dependencias:
+ *  - WaitingRoomModule: directo (WaitingRoom es standalone, no hay ciclo).
+ *  - CasesModule: forwardRef, porque CasesService usa UsersService
+ *    (incrementActiveCases) → ciclo 2-vías Users ↔ Cases, robusto con forwardRef.
+ *
+ * UsersController orquesta el auto-asignamiento al ponerse disponible un médico
+ * (takeNext de la cola + create del caso).
  */
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     AccessCodesModule,
-    forwardRef(() => WaitingRoomModule),
+    WaitingRoomModule,
+    forwardRef(() => CasesModule),
   ],
   controllers: [UsersController],
   providers: [UsersService],

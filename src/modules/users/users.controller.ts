@@ -23,6 +23,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../schemas/user.schema';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
+import { Types } from 'mongoose';
+
 import { UsersService } from './users.service';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
@@ -30,6 +32,9 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { WaitingRoomService } from '../waiting-room/waiting-room.service';
+import { CasesService } from '../cases/cases.service';
+import { CaseType } from '../../schemas/case.schema';
+import { idOf } from '../../common/utils/refs';
 
 class ToggleAvailabilityDto {
   @IsBoolean()
@@ -41,8 +46,9 @@ class ToggleAvailabilityDto {
 export class UsersController {
   constructor(
     private readonly service: UsersService,
-    @Inject(forwardRef(() => WaitingRoomService))
     private readonly waitingRoom: WaitingRoomService,
+    @Inject(forwardRef(() => CasesService))
+    private readonly cases: CasesService,
   ) {}
 
   // -------- Público -----------------------------------------------------
@@ -90,12 +96,19 @@ export class UsersController {
     let dispatchedCase: unknown = null;
     if (dto.available) {
       // Al ponerse disponible, intentamos asignarle el primer paciente en
-      // cola. Si la cola está vacía, dispatchToDoctor devuelve null y no
-      // pasa nada. Si hay paciente, se le crea un caso y queda asignado.
+      // cola. Orquestación acá (no en WaitingRoomService) para evitar el
+      // ciclo de módulos. Best-effort: no fallamos el toggle si algo sale mal.
       try {
-        dispatchedCase = await this.waitingRoom.dispatchToDoctor(user.sub);
+        const entry = await this.waitingRoom.takeNext();
+        if (entry) {
+          dispatchedCase = await this.cases.create(
+            new Types.ObjectId(idOf(entry.patient)),
+            new Types.ObjectId(user.sub),
+            CaseType.CHAT,
+            entry.reason,
+          );
+        }
       } catch {
-        // Best-effort: no fallamos el toggle si la cola tiene un problema.
         dispatchedCase = null;
       }
     }

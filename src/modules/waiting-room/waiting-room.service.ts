@@ -1,8 +1,5 @@
 import {
-  BadRequestException,
   ConflictException,
-  forwardRef,
-  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,9 +10,6 @@ import {
   WaitingRoomEntry,
   WaitingRoomEntryDocument,
 } from '../../schemas/waiting-room.schema';
-import { CasesService } from '../cases/cases.service';
-import { CaseType, CaseDocument } from '../../schemas/case.schema';
-import { idOf } from '../../common/utils/refs';
 
 /**
  * Servicio de sala de espera.
@@ -31,30 +25,7 @@ export class WaitingRoomService {
   constructor(
     @InjectModel(WaitingRoomEntry.name)
     private readonly model: Model<WaitingRoomEntryDocument>,
-    @Inject(forwardRef(() => CasesService))
-    private readonly cases: CasesService,
   ) {}
-
-  /**
-   * Despacha al primer paciente de la cola al médico indicado.
-   * Crea un caso CHAT entre ambos, lo saca de la cola atómicamente,
-   * y devuelve el caso. Si no hay nadie esperando, devuelve null.
-   *
-   * Lo usa `UsersService.setAvailability(true)` para activar a un
-   * médico Y de paso asignarle el primer paciente que estaba aguardando.
-   */
-  async dispatchToDoctor(doctorId: string): Promise<CaseDocument | null> {
-    const entry = await this.takeNext();
-    if (!entry) return null;
-    // takeNext popula `patient`, así que extraemos el _id robustamente.
-    const patientObjectId = new Types.ObjectId(idOf(entry.patient));
-    return this.cases.create(
-      patientObjectId,
-      new Types.ObjectId(doctorId),
-      CaseType.CHAT,
-      entry.reason,
-    );
-  }
 
   /**
    * Agrega un paciente a la lista. Si ya está, lanza 409.
