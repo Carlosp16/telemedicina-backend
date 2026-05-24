@@ -1,6 +1,5 @@
 # Plataforma de Telemedicina — Backend (API + WebSockets)
 
-Capa de servicios web del TEG **“Plataforma para la comunicación multimedia en tiempo real entre pacientes y profesionales del sector de la salud”**.
 
 Expone una API REST y dos gateways de Socket.io (señalización WebRTC y chat en tiempo real) que alimentan al aplicativo móvil (React Native) y al portal web (React.js).
 
