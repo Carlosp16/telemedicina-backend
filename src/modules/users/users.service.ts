@@ -280,6 +280,11 @@ export class UsersService {
     await this.userModel.updateOne({ _id: userId }, { $inc: { activeCases: delta } });
   }
 
+  /** Vuelve la carga activa de un médico a 0 (tras cerrar todos sus casos). */
+  async resetActiveCases(userId: Types.ObjectId): Promise<void> {
+    await this.userModel.updateOne({ _id: userId }, { $set: { activeCases: 0 } });
+  }
+
   /**
    * Busca un médico disponible con la menor carga de trabajo.
    * Devuelve null si no hay ningún médico disponible.

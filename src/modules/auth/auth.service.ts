@@ -90,6 +90,13 @@ export class AuthService {
   }
 
   async login(user: UserDocument) {
+    // Los médicos arrancan cada sesión como NO disponibles: tienen que
+    // pulsar "Disponible" para entrar a la cola. Evita que un médico
+    // "quede" disponible tras cerrar sesión y se le auto-asignen pacientes
+    // sin estar realmente conectado.
+    if (user.role === UserRole.MEDICO) {
+      await this.users.setAvailability(String(user._id), false).catch(() => undefined);
+    }
     return {
       accessToken: this.issueToken(user),
       user: {

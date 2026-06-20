@@ -94,6 +94,7 @@ export class UsersController {
   ) {
     await this.service.setAvailability(user.sub, dto.available);
     let dispatchedCase: unknown = null;
+    let closedCases = 0;
     if (dto.available) {
       // Al ponerse disponible, intentamos asignarle el primer paciente en
       // cola. Orquestación acá (no en WaitingRoomService) para evitar el
@@ -111,8 +112,18 @@ export class UsersController {
       } catch {
         dispatchedCase = null;
       }
+    } else {
+      // Al ponerse no-disponible, cerramos los casos activos del médico
+      // para no dejar al paciente atrapado en un chat fantasma. Best-effort.
+      try {
+        closedCases = await this.cases.closeAllForDoctor(
+          new Types.ObjectId(user.sub),
+        );
+      } catch {
+        closedCases = 0;
+      }
     }
-    return { available: dto.available, dispatchedCase };
+    return { available: dto.available, dispatchedCase, closedCases };
   }
 
   // -------- Admin -------------------------------------------------------

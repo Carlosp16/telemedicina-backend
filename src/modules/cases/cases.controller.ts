@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   Patch,
   UseGuards,
@@ -11,11 +13,10 @@ import { Types } from 'mongoose';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../schemas/user.schema';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { idOf } from '../../common/utils/refs';
 
 import { CasesService } from './cases.service';
 
@@ -44,15 +45,29 @@ export class CasesController {
     return this.service.findById(id);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MEDICO)
   @Patch(':id/close')
-  @ApiOperation({ summary: 'Cerrar un caso (sólo médicos).' })
-  close(
+  @ApiOperation({
+    summary: 'Cerrar un caso (cualquier participante: médico o paciente).',
+    description:
+      'El médico puede cerrar con un diagnóstico. El paciente también puede ' +
+      'cerrar para salir voluntariamente; en ese caso `diagnosis` queda como ' +
+      'el motivo declarado o por defecto "Cerrado por el paciente".',
+  })
+  async close(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
     @Body() dto: CloseCaseDto,
   ) {
-    return this.service.close(id, new Types.ObjectId(user.sub), dto.diagnosis);
+    const kase = await this.service.findById(id);
+    if (!kase) throw new NotFoundException('Caso no encontrado.');
+    const isParticipant =
+      idOf(kase.patient) === user.sub || idOf(kase.doctor) === user.sub;
+    if (!isParticipant) {
+      throw new ForbiddenException('No participas en este caso.');
+    }
+    const diagnosis =
+      dto.diagnosis ||
+      (user.role === UserRole.PACIENTE ? 'Cerrado por el paciente' : undefined);
+    return this.service.close(id, new Types.ObjectId(user.sub), diagnosis);
   }
 }
